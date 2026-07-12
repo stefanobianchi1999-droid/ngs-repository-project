@@ -1,0 +1,2 @@
+# Snakefile for the metagenomics pipeline
+configfile: "config.yml"

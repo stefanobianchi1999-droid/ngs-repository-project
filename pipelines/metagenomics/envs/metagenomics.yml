@@ -1,0 +1,8 @@
+# Extends shared/envs/base.yml with metagenomics specific tools
+name: metagenomics
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - kraken2
+  - qiime2
