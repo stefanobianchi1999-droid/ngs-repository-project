@@ -1,0 +1,2 @@
+# Snakefile for the chip-seq pipeline
+configfile: "config.yml"
