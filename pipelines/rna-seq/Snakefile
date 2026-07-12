@@ -1,0 +1,2 @@
+# Snakefile for the rna-seq pipeline
+configfile: "config.yml"

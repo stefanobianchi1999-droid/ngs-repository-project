@@ -1,0 +1,8 @@
+# Extends shared/envs/base.yml with WGS/WES specific tools
+name: wgs
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bwa
+  - gatk4
