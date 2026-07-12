@@ -1,0 +1,9 @@
+# Extends shared/envs/base.yml with RNA-seq specific tools
+name: rna-seq
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - star
+  - salmon
+  - subread   # featureCounts

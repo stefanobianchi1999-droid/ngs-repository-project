@@ -1,0 +1,11 @@
+name: seq-base
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - fastqc
+  - fastp
+  - samtools
+  - bcftools
+  - seqtk
+  - multiqc

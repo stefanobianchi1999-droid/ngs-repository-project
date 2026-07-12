@@ -1,5 +1,23 @@
+# Large sequencing files
 *.tar
 *.tar.gz
 *.fastq
 *.fastq.gz
 *.fq.gz
+*.bam
+*.sam
+*.bai
+*.vcf
+*.vcf.gz
+
+# Data and reference genomes (too large for git)
+data/**
+!data/**/
+!data/**/.gitkeep
+shared/reference/**
+!shared/reference/.gitkeep
+
+# Results outputs
+results/**
+!results/**/
+!results/**/.gitkeep
