@@ -21,3 +21,7 @@ shared/reference/**
 results/**
 !results/**/
 !results/**/.gitkeep
+
+# Python artifacts
+__pycache__/
+*.pyc
