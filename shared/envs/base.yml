@@ -9,3 +9,4 @@ dependencies:
   - bcftools
   - seqtk
   - multiqc
+  - snakemake-minimal
