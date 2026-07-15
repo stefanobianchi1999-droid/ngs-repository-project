@@ -1,2 +1,72 @@
 # Snakefile for the rna-seq pipeline
-configfile: "config.yml"
+import os
+
+# Make the pipeline runnable from anywhere: paths below are relative to the
+# repo root, so pin config + working directory to it regardless of where
+# snakemake is launched. workflow.basedir = this Snakefile's directory.
+REPO_ROOT = os.path.abspath(os.path.join(workflow.basedir, "..", ".."))
+configfile: os.path.join(workflow.basedir, "config.yml")
+workdir: REPO_ROOT
+
+SAMPLES = config["samples"]
+RUN = config["run_id"]
+
+# ============================================
+# Target finale: i report FastQC prima e dopo il trimming
+# ============================================
+rule all:
+    input:
+        expand("results/rna-seq/{run}/before/fastqc/{sample}_{read}_fastqc.html",
+               run=RUN, sample=SAMPLES, read=[1, 2]),
+        expand("results/rna-seq/{run}/after/fastqc/{sample}_{read}_fastqc.html",
+               run=RUN, sample=SAMPLES, read=[1, 2])
+
+
+# ============================================
+# Step 0: controllo qualità con FastQC (sulle read grezze)
+# ============================================
+rule fastqc_raw:
+    input:
+        r1 = "data/raw/rna-seq/{sample}_1.fastq.gz",
+        r2 = "data/raw/rna-seq/{sample}_2.fastq.gz"
+    output:
+        html_r1 = "results/rna-seq/{run}/before/fastqc/{sample}_1_fastqc.html",
+        html_r2 = "results/rna-seq/{run}/before/fastqc/{sample}_2_fastqc.html"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "fastqc {input.r1} {input.r2} -o results/rna-seq/{wildcards.run}/before/fastqc/"
+
+# ============================================
+# Step 1: trimming con fastp
+# ============================================
+rule fastp_trim:
+    input:
+        r1 = "data/raw/rna-seq/{sample}_1.fastq.gz",
+        r2 = "data/raw/rna-seq/{sample}_2.fastq.gz"
+    output:
+        r1 = "results/rna-seq/{run}/trimmed/{sample}_1.fastq.gz",
+        r2 = "results/rna-seq/{run}/trimmed/{sample}_2.fastq.gz",
+        html = "results/rna-seq/{run}/trimmed/{sample}_fastp.html",
+        json = "results/rna-seq/{run}/trimmed/{sample}_fastp.json"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "fastp -i {input.r1} -I {input.r2} "
+        "-o {output.r1} -O {output.r2} "
+        "-h {output.html} -j {output.json}"
+
+# ============================================
+# Step 2: controllo qualità con FastQC (sulle read pulite)
+# ============================================
+rule fastqc_trimmed:
+    input:
+        r1 = "results/rna-seq/{run}/trimmed/{sample}_1.fastq.gz",
+        r2 = "results/rna-seq/{run}/trimmed/{sample}_2.fastq.gz"
+    output:
+        html_r1 = "results/rna-seq/{run}/after/fastqc/{sample}_1_fastqc.html",
+        html_r2 = "results/rna-seq/{run}/after/fastqc/{sample}_2_fastqc.html"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "fastqc {input.r1} {input.r2} -o results/rna-seq/{wildcards.run}/after/fastqc/"
