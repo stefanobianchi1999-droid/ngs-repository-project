@@ -21,3 +21,13 @@ shared/reference/**
 results/**
 !results/**/
 !results/**/.gitkeep
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Snakemake working/metadata cache
+.snakemake/
+
+# Editor / IDE
+.vscode/

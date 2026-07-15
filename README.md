@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# ngs-repository-project
-NGS analysis pipeline: QC, trimming, alignment, and downstream analysis"
-=======
 # ngs-repository-project
 NGS analysis pipeline: QC, trimming, alignment, and downstream analysis"
 # NGS RNA-seq Analysis Pipeline
@@ -29,4 +25,3 @@ Build and run a complete RNA-seq analysis pipeline using standard bioinformatics
 
 ## Status
 🚧 Work in progress
->>>>>>> origin/main

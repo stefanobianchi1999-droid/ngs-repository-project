@@ -1,0 +1,7 @@
+.git
+.documents
+data
+results
+notebooks
+*.Rproj.user
+__pycache__
