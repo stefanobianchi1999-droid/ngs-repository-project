@@ -4,3 +4,7 @@ samples:
   - SRR16039734
 
 run_id: "run_2026-07-15"
+
+genome_dir: "shared/reference/star_index"
+genome_fasta_gz: "shared/reference/ecoli/ecoli_k12_mg1655.fasta.gz"
+genome_gtf_gz: "shared/reference/ecoli/ecoli_k12_mg1655.gtf.gz"
