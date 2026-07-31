@@ -28,6 +28,8 @@ rule all:
         expand("results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam.bai",
                run=RUN, sample=SAMPLES),
         expand("results/rna-seq/{run}/aligned/{sample}_samtools_stats.txt",
+               run=RUN, sample=SAMPLES),
+        expand("results/rna-seq/{run}/aligned/{sample}_flagstat.txt",
                run=RUN, sample=SAMPLES)
 
 
@@ -165,3 +167,16 @@ rule samtools_stats:
         "envs/rna-seq.yml"
     shell:
         "samtools stats {input.bam} > {output.stats}"
+
+# ============================================
+# Step 6: riepilogo rapido dei flag di allineamento (QC)
+# ============================================
+rule samtools_flagstat:
+    input:
+        bam = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam"
+    output:
+        flagstat = "results/rna-seq/{run}/aligned/{sample}_flagstat.txt"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "samtools flagstat {input.bam} > {output.flagstat}"
