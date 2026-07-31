@@ -25,7 +25,7 @@ rule all:
         #        run=RUN, sample=SAMPLES, read=[1, 2]),
         # expand("results/rna-seq/{run}/after/fastqc/{sample}_{read}_fastqc.html",
         #        run=RUN, sample=SAMPLES, read=[1, 2]),
-        expand("results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam",
+        expand("results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam.bai",
                run=RUN, sample=SAMPLES)
 
 
@@ -137,3 +137,16 @@ rule star_alignment:
         "--outFileNamePrefix {params.prefix} "
         "--outTmpDir {params.prefix}star_tmp "
         "--runThreadN {threads}"
+
+# ============================================
+# Step 4: indicizzo il BAM allineato per l'accesso casuale (IGV, region query, ecc.)
+# ============================================
+rule samtools_index:
+    input:
+        bam = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam"
+    output:
+        bai = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam.bai"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "samtools index {input.bam}"
