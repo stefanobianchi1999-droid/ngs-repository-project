@@ -30,6 +30,8 @@ rule all:
         expand("results/rna-seq/{run}/aligned/{sample}_samtools_stats.txt",
                run=RUN, sample=SAMPLES),
         expand("results/rna-seq/{run}/aligned/{sample}_flagstat.txt",
+               run=RUN, sample=SAMPLES),
+        expand("results/rna-seq/{run}/aligned/{sample}_bamstats_plots/index.html",
                run=RUN, sample=SAMPLES)
 
 
@@ -180,3 +182,18 @@ rule samtools_flagstat:
         "envs/rna-seq.yml"
     shell:
         "samtools flagstat {input.bam} > {output.flagstat}"
+
+# ============================================
+# Step 7: grafici QC a partire dalle statistiche di samtools stats
+# ============================================
+rule plot_bamstats:
+    input:
+        stats = "results/rna-seq/{run}/aligned/{sample}_samtools_stats.txt"
+    output:
+        html = "results/rna-seq/{run}/aligned/{sample}_bamstats_plots/index.html"
+    params:
+        prefix = "results/rna-seq/{run}/aligned/{sample}_bamstats_plots/"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "plot-bamstats -p {params.prefix} {input.stats}"
