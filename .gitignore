@@ -21,3 +21,6 @@ shared/reference/**
 results/**
 !results/**/
 !results/**/.gitkeep
+
+# Snakemake metadata/cache
+.snakemake/
