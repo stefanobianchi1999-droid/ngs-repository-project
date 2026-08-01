@@ -22,5 +22,12 @@ results/**
 !results/**/
 !results/**/.gitkeep
 
-# Snakemake metadata/cache
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Snakemake working/metadata cache
 .snakemake/
+
+# Editor / IDE
+.vscode/

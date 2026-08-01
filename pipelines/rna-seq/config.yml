@@ -1,1 +1,6 @@
 # rna-seq pipeline configuration
+
+samples:
+  - SRR16039734
+
+run_id: "run_2026-07-15"
