@@ -9,3 +9,6 @@ dependencies:
   - star
   - salmon
   - subread   # featureCounts
+  - samtools
+  - gnuplot   # required by plot-bamstats (bundled with samtools)
+  - perl-uri  # provides URI::Escape, required by plot-bamstats
