@@ -119,6 +119,25 @@ RNA-seq (`pipelines/rna-seq/Snakefile`), a partire dall'output di
   mal gestito, contaminazione da adapter non trimmata, o discrepanze
   strutturali nel genoma di riferimento.
 
+- **Coverage** (`coverage.png`) — distribuzione della profondità di copertura
+  aggregata su tutto il BAM: asse X il valore di coverage (profondità), asse
+  Y (scala logaritmica) il numero di basi mappate che hanno esattamente
+  quella profondità.
+
+  **Come leggerlo**: tipicamente un picco a profondità bassa (la maggior
+  parte delle basi ha coverage nell'ordine di poche decine/centinaia) seguito
+  da una curva che scende rapidamente — poche basi raggiungono coperture
+  molto alte. È il dato aggregato "quante basi hanno coverage X", utile per
+  farsi un'idea generale della copertura media e della sua variabilità.
+
+  **Differenza con `samtools depth`**: questo grafico non dice **dove** nel
+  genoma si trovano le basi a bassa o alta copertura, solo quante ce ne sono
+  in totale — è un istogramma senza informazione posizionale. Per sapere
+  esattamente su quali coordinate del genoma la copertura scende (es. per
+  individuare geni o regioni specifiche poco coperte) serve
+  `samtools depth`, che riporta la profondità per ogni singola posizione
+  (regola `samtools_depth` nella pipeline).
+
 - **Mapped depth vs GC** (`gc-depth.png`) — relazione tra profondità di
   copertura e contenuto GC locale.
 
