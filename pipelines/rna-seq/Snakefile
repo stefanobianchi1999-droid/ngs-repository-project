@@ -31,6 +31,8 @@ rule all:
                run=RUN, sample=SAMPLES),
         expand("results/rna-seq/{run}/aligned/{sample}_flagstat.txt",
                run=RUN, sample=SAMPLES),
+        expand("results/rna-seq/{run}/aligned/{sample}_depth.txt",
+               run=RUN, sample=SAMPLES),
         expand("results/rna-seq/{run}/aligned/{sample}_bamstats_plots/index.html",
                run=RUN, sample=SAMPLES)
 
@@ -182,6 +184,20 @@ rule samtools_flagstat:
         "envs/rna-seq.yml"
     shell:
         "samtools flagstat {input.bam} > {output.flagstat}"
+
+# ============================================
+# Step 6.5: profondità di copertura per-base (QC)
+# ============================================
+rule samtools_depth:
+    input:
+        bam = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam",
+        bai = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam.bai"
+    output:
+        depth = "results/rna-seq/{run}/aligned/{sample}_depth.txt"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "samtools depth -a {input.bam} > {output.depth}"
 
 # ============================================
 # Step 7: grafici QC a partire dalle statistiche di samtools stats
