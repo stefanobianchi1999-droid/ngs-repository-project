@@ -12,3 +12,4 @@ dependencies:
   - snakemake-minimal
   - gnuplot   # required by samtools' plot-bamstats
   - perl-uri  # provides URI::Escape, required by plot-bamstats
+  - subread   # provides featureCounts
