@@ -13,3 +13,6 @@ dependencies:
   - gnuplot   # required by samtools' plot-bamstats
   - perl-uri  # provides URI::Escape, required by plot-bamstats
   - subread   # provides featureCounts
+  - r-base
+  - bioconductor-deseq2
+  - r-ggplot2 # volcano plot
