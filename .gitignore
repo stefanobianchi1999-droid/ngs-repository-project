@@ -22,6 +22,11 @@ results/**
 !results/**/
 !results/**/.gitkeep
 
+# Downloaded exercise datasets
+exercises/**
+!exercises/**/
+!exercises/**/.gitkeep
+
 # Python artifacts
 __pycache__/
 *.pyc
@@ -31,3 +36,4 @@ __pycache__/
 
 # Editor / IDE
 .vscode/
+.venv/
