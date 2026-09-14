@@ -1,0 +1,14 @@
+# Extends shared/envs/base.yml with RNA-seq specific tools
+name: rna-seq
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - fastqc
+  - fastp
+  - star
+  - salmon
+  - subread   # featureCounts
+  - samtools
+  - gnuplot   # required by plot-bamstats (bundled with samtools)
+  - perl-uri  # provides URI::Escape, required by plot-bamstats

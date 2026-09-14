@@ -1,0 +1,37 @@
+# Large sequencing files
+*.tar
+*.tar.gz
+*.fastq
+*.fastq.gz
+*.fq.gz
+*.bam
+*.sam
+*.bai
+*.vcf
+*.vcf.gz
+
+# Data and reference genomes (too large for git)
+data/**
+!data/**/
+!data/**/.gitkeep
+
+# Results outputs
+results/**
+!results/**/
+!results/**/.gitkeep
+
+# Downloaded exercise datasets
+exercises/**
+!exercises/**/
+!exercises/**/.gitkeep
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Snakemake working/metadata cache
+.snakemake/
+
+# Editor / IDE
+.vscode/
+.venv/

@@ -1,0 +1,9 @@
+# Environment R per l'analisi di espressione differenziale (DESeq2 + volcano plot)
+name: deseq2
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base
+  - bioconductor-deseq2
+  - r-ggplot2
