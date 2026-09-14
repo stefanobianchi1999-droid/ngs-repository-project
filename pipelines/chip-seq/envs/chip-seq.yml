@@ -1,8 +1,0 @@
-# Extends shared/envs/base.yml with ChIP-seq specific tools
-name: chip-seq
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - bowtie2
-  - macs2
