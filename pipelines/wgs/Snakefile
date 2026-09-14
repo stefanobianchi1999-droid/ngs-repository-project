@@ -1,2 +1,0 @@
-# Snakefile for the wgs pipeline
-configfile: "config.yml"
