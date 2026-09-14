@@ -14,8 +14,6 @@
 data/**
 !data/**/
 !data/**/.gitkeep
-shared/reference/**
-!shared/reference/.gitkeep
 
 # Results outputs
 results/**
