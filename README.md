@@ -21,7 +21,7 @@ Build and run a complete RNA-seq analysis pipeline using standard bioinformatics
 - fastp
 - STAR
 - samtools
-- conda (environment management)
+- mamba (environment management)
 
 ## Status
 🚧 Work in progress
