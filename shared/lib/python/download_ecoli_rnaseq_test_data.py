@@ -6,7 +6,7 @@ Downloads test data for an E. coli RNA-seq pipeline (FastQC -> fastp -> STAR/sal
 -> featureCounts -> DESeq2):
 
   1. Reference genome + GTF annotation: E. coli K-12 MG1655 (NCBI assembly
-     GCF_000005845.2 / ASM584v2) -> shared/reference/ecoli/
+     GCF_000005845.2 / ASM584v2) -> data/reference/ecoli/
   2. RNA-seq FASTQ reads (paired or single-end, .fastq.gz) from ENA, given
      one or more run accessions -> data/raw/rna-seq/
 
@@ -49,7 +49,7 @@ ENA_FILEREPORT_API = (
     "?accession={accession}&result=read_run&fields=fastq_ftp&format=json"
 )
 
-REF_DIR = Path("shared/reference/ecoli")
+REF_DIR = Path("data/reference/ecoli")
 FASTQ_DIR = Path("data/raw/rna-seq")
 
 # Network timeout for a single read/connect operation, in seconds.
