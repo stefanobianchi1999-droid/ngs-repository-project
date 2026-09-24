@@ -1,0 +1,257 @@
+# Snakefile for the rna-seq pipeline
+import os
+
+# Make the pipeline runnable from anywhere: paths below are relative to the
+# repo root, so pin config + working directory to it regardless of where
+# snakemake is launched. workflow.basedir = this Snakefile's directory.
+REPO_ROOT = os.path.abspath(os.path.join(workflow.basedir, "..", ".."))
+configfile: os.path.join(workflow.basedir, "config.yml")
+workdir: REPO_ROOT
+
+SAMPLES = config["samples"]
+CONDITIONS = config["conditions"]
+RUN = config["run_id"]
+GENOME_DIR = config["genome_dir"]
+GENOME_FASTA_GZ = config["genome_fasta_gz"]
+GENOME_GTF_GZ = config["genome_gtf_gz"]
+GENOME_FASTA = GENOME_FASTA_GZ[:-len(".gz")]
+GENOME_GTF = GENOME_GTF_GZ[:-len(".gz")]
+
+# ============================================
+# Target finale: i report FastQC prima e dopo il trimming
+# ============================================
+rule all:
+    input:
+        # expand("results/rna-seq/{run}/before/fastqc/{sample}_{read}_fastqc.html",
+        #        run=RUN, sample=SAMPLES, read=[1, 2]),
+        # expand("results/rna-seq/{run}/after/fastqc/{sample}_{read}_fastqc.html",
+        #        run=RUN, sample=SAMPLES, read=[1, 2]),
+        # expand("results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam.bai",
+        #        run=RUN, sample=SAMPLES),
+        # expand("results/rna-seq/{run}/aligned/{sample}_samtools_stats.txt",
+        #        run=RUN, sample=SAMPLES),
+        # expand("results/rna-seq/{run}/aligned/{sample}_flagstat.txt",
+        #        run=RUN, sample=SAMPLES),
+        # expand("results/rna-seq/{run}/aligned/{sample}_depth.txt",
+        #        run=RUN, sample=SAMPLES),
+        # expand("results/rna-seq/{run}/aligned/{sample}_bamstats_plots/index.html",
+        #        run=RUN, sample=SAMPLES),
+        # expand("results/rna-seq/{run}/counts/gene_counts.txt",
+        #        run=RUN),
+        expand("results/rna-seq/{run}/deseq2/volcano_plot.png",
+               run=RUN)
+
+
+# ============================================
+# Step 0: controllo qualità con FastQC (sulle read grezze)
+# ============================================
+rule fastqc_raw:
+    input:
+        r1 = "data/raw/rna-seq/{sample}_1.fastq.gz",
+        r2 = "data/raw/rna-seq/{sample}_2.fastq.gz"
+    output:
+        html_r1 = "results/rna-seq/{run}/before/fastqc/{sample}_1_fastqc.html",
+        html_r2 = "results/rna-seq/{run}/before/fastqc/{sample}_2_fastqc.html"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "fastqc {input.r1} {input.r2} -o results/rna-seq/{wildcards.run}/before/fastqc/"
+
+# ============================================
+# Step 1: trimming con fastp
+# ============================================
+rule fastp_trim:
+    input:
+        r1 = "data/raw/rna-seq/{sample}_1.fastq.gz",
+        r2 = "data/raw/rna-seq/{sample}_2.fastq.gz"
+    output:
+        r1 = "results/rna-seq/{run}/trimmed/{sample}_1.fastq.gz",
+        r2 = "results/rna-seq/{run}/trimmed/{sample}_2.fastq.gz",
+        html = "results/rna-seq/{run}/trimmed/{sample}_fastp.html",
+        json = "results/rna-seq/{run}/trimmed/{sample}_fastp.json"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "fastp -i {input.r1} -I {input.r2} "
+        "-o {output.r1} -O {output.r2} "
+        "-h {output.html} -j {output.json}"
+
+# ============================================
+# Step 2: controllo qualità con FastQC (sulle read pulite)
+# ============================================
+rule fastqc_trimmed:
+    input:
+        r1 = "results/rna-seq/{run}/trimmed/{sample}_1.fastq.gz",
+        r2 = "results/rna-seq/{run}/trimmed/{sample}_2.fastq.gz"
+    output:
+        html_r1 = "results/rna-seq/{run}/after/fastqc/{sample}_1_fastqc.html",
+        html_r2 = "results/rna-seq/{run}/after/fastqc/{sample}_2_fastqc.html"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "fastqc {input.r1} {input.r2} -o results/rna-seq/{wildcards.run}/after/fastqc/"
+
+# ============================================
+# Step 2.5: preparo il genoma di riferimento (decompressione + indice STAR)
+# ============================================
+rule decompress_genome:
+    input:
+        fasta_gz = GENOME_FASTA_GZ,
+        gtf_gz = GENOME_GTF_GZ
+    output:
+        fasta = GENOME_FASTA,
+        gtf = GENOME_GTF
+    shell:
+        "gunzip -k {input.fasta_gz} && gunzip -k {input.gtf_gz}"
+
+rule star_index:
+    input:
+        fasta = GENOME_FASTA,
+        gtf = GENOME_GTF
+    output:
+        directory(GENOME_DIR)
+    conda:
+        "envs/rna-seq.yml"
+    threads: 2
+    shell:
+        # E. coli è un genoma piccolo (~4.6 Mb): --genomeSAindexNbases va
+        # ridotto rispetto al default (14), altrimenti STAR genera un indice
+        # non ottimale per genomi di queste dimensioni.
+        "STAR --runMode genomeGenerate "
+        "--genomeDir {output} "
+        "--genomeFastaFiles {input.fasta} "
+        "--sjdbGTFfile {input.gtf} "
+        "--genomeSAindexNbases 10 "
+        "--runThreadN {threads}"
+
+# ============================================
+# Step 3: allineo le sequenze già filtrate con fastp
+# ============================================
+rule star_alignment:
+    input:
+        r1 = "results/rna-seq/{run}/trimmed/{sample}_1.fastq.gz",
+        r2 = "results/rna-seq/{run}/trimmed/{sample}_2.fastq.gz",
+        genome_dir = GENOME_DIR
+    output:
+        bam = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam"
+    params:
+        prefix = "results/rna-seq/{run}/aligned/{sample}_",
+        genome_dir = GENOME_DIR
+    threads: 2
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "STAR --runMode alignReads "
+        "--genomeDir {params.genome_dir} "
+        "--readFilesIn {input.r1} {input.r2} "
+        "--readFilesCommand zcat "
+        "--outSAMtype BAM SortedByCoordinate "
+        "--limitBAMsortRAM 2000000000 "
+        "--outFileNamePrefix {params.prefix} "
+        "--outTmpDir {params.prefix}star_tmp "
+        "--runThreadN {threads}"
+
+# ============================================
+# Step 4: indicizzo il BAM allineato per l'accesso casuale (IGV, region query, ecc.)
+# ============================================
+rule samtools_index:
+    input:
+        bam = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam"
+    output:
+        bai = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam.bai"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "samtools index {input.bam}"
+
+# ============================================
+# Step 5: statistiche dettagliate di allineamento (QC)
+# ============================================
+rule samtools_stats:
+    input:
+        bam = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam"
+    output:
+        stats = "results/rna-seq/{run}/aligned/{sample}_samtools_stats.txt"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "samtools stats {input.bam} > {output.stats}"
+
+# ============================================
+# Step 6: riepilogo rapido dei flag di allineamento (QC)
+# ============================================
+rule samtools_flagstat:
+    input:
+        bam = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam"
+    output:
+        flagstat = "results/rna-seq/{run}/aligned/{sample}_flagstat.txt"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "samtools flagstat {input.bam} > {output.flagstat}"
+
+# ============================================
+# Step 6.5: profondità di copertura per-base (QC)
+# ============================================
+rule samtools_depth:
+    input:
+        bam = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam",
+        bai = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam.bai"
+    output:
+        depth = "results/rna-seq/{run}/aligned/{sample}_depth.txt"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "samtools depth -a {input.bam} > {output.depth}"
+
+# ============================================
+# Step 7: grafici QC a partire dalle statistiche di samtools stats
+# ============================================
+rule plot_bamstats:
+    input:
+        stats = "results/rna-seq/{run}/aligned/{sample}_samtools_stats.txt"
+    output:
+        html = "results/rna-seq/{run}/aligned/{sample}_bamstats_plots/index.html"
+    params:
+        prefix = "results/rna-seq/{run}/aligned/{sample}_bamstats_plots/"
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "plot-bamstats -p {params.prefix} {input.stats}"
+
+# ============================================
+# Step 8: conteggio delle reads per gene con featureCounts
+# ============================================
+rule featurecounts:
+    input:
+        bams = expand("results/rna-seq/{{run}}/aligned/{sample}_Aligned.sortedByCoord.out.bam",
+                       sample=SAMPLES),
+        gtf = GENOME_GTF
+    output:
+        counts = "results/rna-seq/{run}/counts/gene_counts.txt"
+    threads: 2
+    conda:
+        "envs/rna-seq.yml"
+    shell:
+        "featureCounts -a {input.gtf} -o {output.counts} "
+        "-T {threads} -p "
+        "{input.bams}"
+
+# ============================================
+# Step 9: analisi di espressione differenziale con DESeq2 + volcano plot
+# ============================================
+rule deseq2_analysis:
+    input:
+        counts = "results/rna-seq/{run}/counts/gene_counts.txt",
+        script = "shared/lib/r/deseq2_analysis.R"
+    output:
+        results_csv = "results/rna-seq/{run}/deseq2/deseq2_results.csv",
+        volcano_png = "results/rna-seq/{run}/deseq2/volcano_plot.png"
+    params:
+        # "sample1:cond1,sample2:cond2,..." nell'ordine dei sample del config
+        conditions = ",".join(f"{s}:{CONDITIONS[s]}" for s in SAMPLES)
+    conda:
+        "envs/deseq2.yml"
+    shell:
+        "Rscript {input.script} {input.counts} {params.conditions} "
+        "{output.results_csv} {output.volcano_png}"

@@ -1,0 +1,23 @@
+# rna-seq pipeline configuration
+
+samples:
+  - SRR16039734
+  - SRR16039734_tumor
+
+# Condizione sperimentale di ciascun sample, usata dal design DESeq2 (~ condition).
+# Deve avere almeno 2 gruppi distinti, ciascuno con repliche, per poter calcolare
+# p-value e log2FoldChange in modo affidabile.
+# NOTA: "SRR16039734_tumor" e' una copia dei FASTQ di SRR16039734, aggiunta solo
+# per popolare l'infrastruttura DESeq2/volcano plot con 2 condizioni: essendo
+# dati identici, il contrasto normal-vs-tumor non avra' alcun significato
+# biologico reale (nessun gene differenzialmente espresso). Da sostituire con
+# un sample reale non appena disponibile.
+conditions:
+  SRR16039734: normal
+  SRR16039734_tumor: tumor
+
+run_id: "run_2026-07-15"
+
+genome_dir: "data/reference/star_index"
+genome_fasta_gz: "data/reference/ecoli/ecoli_k12_mg1655.fasta.gz"
+genome_gtf_gz: "data/reference/ecoli/ecoli_k12_mg1655.gtf.gz"
