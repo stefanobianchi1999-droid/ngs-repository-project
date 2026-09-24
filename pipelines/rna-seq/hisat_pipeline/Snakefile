@@ -12,19 +12,34 @@ SAMPLES = config["samples"]
 CONDITIONS = config["conditions"]
 RUN = config["run_id"]
 GENOME_DIR = config["genome_dir"]
-GENOME_FASTA = config["genome_fasta"]
-GENOME_GTF = config["genome_gtf"]
+GENOME_FASTA_GZ = config["genome_fasta_gz"]
+GENOME_GTF_GZ = config["genome_gtf_gz"]
+GENOME_FASTA = GENOME_FASTA_GZ[:-len(".gz")]
+GENOME_GTF = GENOME_GTF_GZ[:-len(".gz")]
 
 # ============================================
 # Target finale: i report FastQC prima e dopo il trimming
 # ============================================
 rule all:
     input:
-        expand("results/rna-seq/{run}/genome/genome.ss",
+        expand("results/rna-seq/{run}/genome/genome_index_prefix",
                run=RUN)
 
 # ============================================
-# Step 1: generate the hint on splice site and on exons
+# Step 1: decompress genome for next analysis
+# ============================================
+rule decompress_genome:
+    input:
+        fasta_gz = GENOME_FASTA_GZ,
+        gtf_gz = GENOME_GTF_GZ
+    output:
+        fasta = GENOME_FASTA,
+        gtf = GENOME_GTF
+    shell:
+        "gunzip -k {input.fasta_gz} && gunzip -k {input.gtf_gz}"
+
+# ============================================
+# Step 2.1: generate the hint on splice site and on exons
 # ============================================
 rule hisat_extract_splice:
     input:
@@ -35,3 +50,33 @@ rule hisat_extract_splice:
         "../envs/rna-seq.yml"
     threads: 2
     shell: "hisat2_extract_splice_sites.py {input.gtf} > {output}"
+
+# ============================================
+# Step 2.2: generate the hint on splice site and on exons
+# ============================================
+rule hisat_extract_exons:
+    input:
+        gtf = GENOME_GTF
+    output:
+        output = "results/rna-seq/{run}/genome/genome.exon"
+    conda:
+        "../envs/rna-seq.yml"
+    threads: 2
+    shell: "hisat2_extract_exon.py {input.gtf} > {output}"
+
+# ============================================
+# Step 3: generate the index using hisat2 algorithm
+# ============================================
+rule hisat_build_index:
+    input:
+        fasta = GENOME_FASTA,
+        ss_file = "results/rna-seq/{run}/genome/genome.ss",
+        exon_file = "results/rna-seq/{run}/genome/genome.exon"
+    output:
+        directory("results/rna-seq/{run}/genome/genome_index_prefix")
+    conda:
+        "../envs/rna-seq.yml"
+    threads: 2
+    shell: "hisat2-build -p {threads} \
+  --ss {input.ss_file} --exon {input.exon_file} \
+  {input.fasta} {output}"

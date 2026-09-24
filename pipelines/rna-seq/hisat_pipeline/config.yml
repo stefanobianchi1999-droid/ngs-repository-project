@@ -10,5 +10,5 @@ conditions:
 run_id: "run_2026-09-24"
 
 genome_dir: "data/reference/homo_sapiens_hisat_index"
-genome_fasta: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
-genome_gtf: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.111.gtf"
+genome_fasta_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+genome_gtf_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.111.gtf.gz"
