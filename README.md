@@ -123,3 +123,12 @@ snakemake -s pipelines/rna-seq/hisat_pipeline/Snakefile --cores 4        # HISAT
 ## Tools used
 
 FastQC · fastp · STAR · HISAT2 · samtools · subread (featureCounts) · DESeq2 · Snakemake · Docker/conda (mamba)
+
+## Contributors
+
+- [Stefano Bianchi](https://github.com/stefanobianchi1999-droid)
+- [flyDaniel](https://github.com/flyDaniel)
+
+## License
+
+This project is licensed under [CC BY-NC 4.0](LICENSE) — free to use, share and adapt for non-commercial purposes, with attribution.
