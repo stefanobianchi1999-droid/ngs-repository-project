@@ -48,7 +48,6 @@ rule hisat_extract_splice:
         output = "results/rna-seq/{run}/genome/genome.ss"
     conda:
         "../envs/rna-seq.yml"
-    threads: 2
     shell: "hisat2_extract_splice_sites.py {input.gtf} > {output}"
 
 # ============================================
@@ -77,7 +76,7 @@ rule hisat_build_index:
                i=range(1, 9))
     conda:
         "../envs/rna-seq.yml"
-    threads: 2
+    threads: workflow.cores
     shell:
         "hisat2-build -p {threads} "
         "--ss {input.ss_file} --exon {input.exon_file} "
