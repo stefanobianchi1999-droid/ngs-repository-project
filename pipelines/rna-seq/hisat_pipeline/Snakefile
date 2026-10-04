@@ -91,7 +91,7 @@ rule hisat2_alignement:
     input:
         indexed_genome = expand("results/rna-seq/{{run}}/genome/genome_index_prefix.{i}.ht2",
                         i=range(1, 9)),
-        sample = "data/raw/rna-seq/{sample}.fastq.gz",
+        sample = "data/raw/rna-seq/{run}/{sample}.fastq.gz",
     output:
         "results/rna-seq/{run}/alignement/{sample}.sam"
     conda:

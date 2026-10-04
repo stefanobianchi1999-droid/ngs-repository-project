@@ -7,7 +7,7 @@ conditions:
   SRR16039734: normal
   SRR16039734_tumor: tumor
 
-run_id: "run_2026-09-24"
+run_id: "exercise_testosterone"
 
 genome_dir: "data/reference/homo_sapiens_hisat_index"
 genome_fasta_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
