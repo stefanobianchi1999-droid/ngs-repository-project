@@ -89,14 +89,14 @@ rule hisat_build_index:
 # ============================================
 rule hisat2_alignement:
     input:
-        indexed_genome = "results/rna-seq/{{run}}/genome/genome_index_prefix.ht2",
+        indexed_genome = "results/rna-seq/{run}/genome/genome_index_prefix",
         sample = "data/raw/rna-seq/{sample}.fastq.gz",
     output:
-        "results/rna-seq/{{run}}/alignement/{{sample}}.sam"
+        "results/rna-seq/{run}/alignement/{sample}.sam"
     conda:
         "../envs/rna-seq.yml"
     threads: workflow.cores
     shell:
         "hisat2 -p {threads} "
-        "-x {input.indexed_genome} -s {output} -u {input.sample}"
+        "-x {input.indexed_genome} -S {output} -U {input.sample}"
         
