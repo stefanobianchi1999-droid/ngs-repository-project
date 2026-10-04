@@ -24,6 +24,8 @@ rule all:
     input:
         expand("results/rna-seq/{run}/genome/genome_index_prefix.{i}.ht2",
                run=RUN, i=range(1, 9))
+        expand("results/rna-seq/{run}/alignement/{sample}.sam",
+               run=RUN, sample=SAMPLES)
 
 # ============================================
 # Step 1: decompress genome for next analysis
@@ -81,3 +83,20 @@ rule hisat_build_index:
         "hisat2-build -p {threads} "
         "--ss {input.ss_file} --exon {input.exon_file} "
         "{input.fasta} results/rna-seq/{wildcards.run}/genome/genome_index_prefix"
+
+# ============================================
+# Step 4: alignement of the reads on already indexed reference genome
+# ============================================
+rule hisat2_alignement:
+    input:
+        indexed_genome = "results/rna-seq/{{run}}/genome/genome_index_prefix.ht2",
+        sample = "data/raw/rna-seq/{sample}.fastq.gz",
+    output:
+        "results/rna-seq/{{run}}/alignement/{{sample}}.sam"
+    conda:
+        "../envs/rna-seq.yml"
+    threads: workflow.cores
+    shell:
+        "hisat2 -p {threads} "
+        "-x {input.indexed_genome} -s {output} -u {input.sample}"
+        
