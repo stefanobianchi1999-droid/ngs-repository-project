@@ -24,7 +24,7 @@ rule all:
     input:
         expand("results/rna-seq/{run}/genome/genome_index_prefix.{i}.ht2",
                run=RUN, i=range(1, 9)),
-        expand("results/rna-seq/{run}/alignement/{sample}.sam",
+        expand("results/rna-seq/{run}/alignement/{sample}_sorted.bam.bai",
                run=RUN, sample=SAMPLES)
 
 # ============================================
@@ -93,12 +93,39 @@ rule hisat2_alignement:
                         i=range(1, 9)),
         sample = "data/raw/rna-seq/{run}/{sample}.fastq.gz",
     output:
-        "results/rna-seq/{run}/alignement/{sample}.sam"
+        sam = "results/rna-seq/{run}/alignement/{sample}.sam"
     conda:
         "../envs/rna-seq.yml"
     threads: workflow.cores
     shell:
         "hisat2 -p {threads} "
-        "-x results/rna-seq/{wildcards.run}/genome/genome_index_prefix " 
-        "-S {output} -U {input.sample}"
-        
+        "-x results/rna-seq/{wildcards.run}/genome/genome_index_prefix "
+        "-S {output.sam} -U {input.sample}"
+
+# ============================================
+# Step 5.1: converto il SAM in BAM ordinato
+# ============================================
+rule samtools_sort:
+    input:
+        sam = "results/rna-seq/{run}/alignement/{sample}.sam"
+    output:
+        bam = "results/rna-seq/{run}/alignement/{sample}_sorted.bam"
+    conda:
+        "../envs/rna-seq.yml"
+    threads: workflow.cores
+    shell:
+        "samtools sort -@ {threads} -o {output.bam} {input.sam}"
+
+# ============================================
+# Step 5.2: indicizzo il BAM allineato per l'accesso casuale (IGV, region query, ecc.)
+# ============================================
+rule samtools_index:
+    input:
+        bam = "results/rna-seq/{run}/alignement/{sample}_sorted.bam"
+    output:
+        bai = "results/rna-seq/{run}/alignement/{sample}_sorted.bam.bai"
+    conda:
+        "../envs/rna-seq.yml"
+    shell:
+        "samtools index {input.bam}"
+
