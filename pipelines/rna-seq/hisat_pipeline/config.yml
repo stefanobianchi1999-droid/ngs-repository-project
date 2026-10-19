@@ -2,13 +2,9 @@
 
 samples:
   - ERR053953
-
-conditions:
-  SRR16039734: normal
-  SRR16039734_tumor: tumor
-
+  
 run_id: "exercise_testosterone"
 
-genome_dir: "data/reference/homo_sapiens_hisat_index"
+genome_dir: "data/reference/homo_sapiens/hisat2"
 genome_fasta_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
 genome_gtf_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.111.gtf.gz"
