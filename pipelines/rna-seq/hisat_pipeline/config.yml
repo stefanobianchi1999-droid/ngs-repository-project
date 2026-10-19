@@ -1,0 +1,10 @@
+# rna-seq pipeline configuration
+
+samples:
+  - ERR053953
+  
+run_id: "exercise_testosterone"
+
+genome_dir: "data/reference/homo_sapiens/hisat2"
+genome_fasta_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+genome_gtf_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.111.gtf.gz"
