@@ -1,0 +1,127 @@
+# Snakefile for the rna-seq pipeline
+import os
+
+# Make the pipeline runnable from anywhere: paths below are relative to the
+# repo root, so pin config + working directory to it regardless of where
+# snakemake is launched. workflow.basedir = this Snakefile's directory.
+REPO_ROOT = os.path.abspath(os.path.join(workflow.basedir, "..", "..", ".."))
+configfile: os.path.join(workflow.basedir, "config.yml")
+workdir: REPO_ROOT
+
+SAMPLES = config["samples"]
+RUN = config["run_id"]
+GENOME_DIR = config["genome_dir"]
+GENOME_FASTA_GZ = config["genome_fasta_gz"]
+GENOME_GTF_GZ = config["genome_gtf_gz"]
+GENOME_FASTA = GENOME_FASTA_GZ[:-len(".gz")]
+GENOME_GTF = GENOME_GTF_GZ[:-len(".gz")]
+
+# ============================================
+# Final target: the HISAT2 index files (genome_index_prefix.1.ht2 ... .8.ht2)
+# ============================================
+rule all:
+    input:
+        expand(os.path.join(GENOME_DIR, "genome_index_prefix.{i}.ht2"), i=range(1, 9)),
+        expand("results/rna-seq/{run}/alignment/{sample}_sorted.bam.bai",
+               run=RUN, sample=SAMPLES)
+
+# ============================================
+# Step 1: decompress genome for the next steps
+# ============================================
+rule decompress_genome:
+    input:
+        fasta_gz = GENOME_FASTA_GZ,
+        gtf_gz = GENOME_GTF_GZ
+    output:
+        fasta = GENOME_FASTA,
+        gtf = GENOME_GTF
+    shell:
+        "gunzip -kf {input.fasta_gz} && gunzip -kf {input.gtf_gz}"
+
+# ============================================
+# Step 2.1: generate splice sites hints
+# ============================================
+rule hisat_extract_splice:
+    input:
+        gtf = GENOME_GTF
+    output:
+        output = os.path.join(GENOME_DIR, "genome.ss")
+    conda:
+        "../envs/rna-seq.yml"
+    shell: "hisat2_extract_splice_sites.py {input.gtf} > {output}"
+
+# ============================================
+# Step 2.2: generate exon hints
+# ============================================
+rule hisat_extract_exons:
+    input:
+        gtf = GENOME_GTF
+    output:
+        output = os.path.join(GENOME_DIR, "genome.exon")
+    conda:
+        "../envs/rna-seq.yml"
+    shell: "hisat2_extract_exons.py {input.gtf} > {output}"
+
+# ============================================
+# Step 3: generate the index using the hisat2 algorithm
+# hisat2-build takes a prefix and writes genome_index_prefix.1.ht2 ... .8.ht2
+# ============================================
+rule hisat_build_index:
+    input:
+        fasta = GENOME_FASTA,
+        ss_file = os.path.join(GENOME_DIR, "genome.ss"),
+        exon_file = os.path.join(GENOME_DIR, "genome.exon")
+    output:
+        expand(os.path.join(GENOME_DIR, "genome_index_prefix.{i}.ht2"), i=range(1, 9))
+    conda:
+        "../envs/rna-seq.yml"
+    threads: workflow.cores
+    shell:
+        "hisat2-build -p {threads} "
+        "--ss {input.ss_file} --exon {input.exon_file} "
+        "{input.fasta} " + os.path.join(GENOME_DIR, "genome_index_prefix")
+
+# ============================================
+# Step 4: alignment of the reads to the already indexed reference genome
+# ============================================
+rule hisat2_alignment:
+    input:
+        indexed_genome = expand(os.path.join(GENOME_DIR, "genome_index_prefix.{i}.ht2"), i=range(1, 9)),
+        sample = "data/raw/rna-seq/{run}/{sample}.fastq.gz",
+    output:
+        sam = "results/rna-seq/{run}/alignment/{sample}.sam"
+    conda:
+        "../envs/rna-seq.yml"
+    threads: workflow.cores
+    shell:
+        "hisat2 -p {threads} "
+        "-x " + os.path.join(GENOME_DIR, "genome_index_prefix") + " "
+        "-S {output.sam} -U {input.sample}"
+
+# ============================================
+# Step 5.1: convert the SAM into a sorted BAM
+# ============================================
+rule samtools_sort:
+    input:
+        sam = "results/rna-seq/{run}/alignment/{sample}.sam"
+    output:
+        bam = "results/rna-seq/{run}/alignment/{sample}_sorted.bam"
+    conda:
+        "../envs/rna-seq.yml"
+    threads: workflow.cores
+    shell:
+        "samtools sort -@ {threads} -o {output.bam} {input.sam}"
+
+# ============================================
+# Step 5.2: index the aligned BAM for random access (IGV, region queries, etc.)
+# ============================================
+rule samtools_index:
+    input:
+        bam = "results/rna-seq/{run}/alignment/{sample}_sorted.bam"
+    output:
+        bai = "results/rna-seq/{run}/alignement/{sample}_sorted.bam.bai"
+    conda:
+        "../envs/rna-seq.yml"
+    shell:
+        "samtools index {input.bam}"
+

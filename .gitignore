@@ -25,6 +25,9 @@ exercises/**
 !exercises/**/
 !exercises/**/.gitkeep
 
+# Lock files
+*.lock
+
 # Python artifacts
 __pycache__/
 *.pyc
@@ -35,3 +38,5 @@ __pycache__/
 # Editor / IDE
 .vscode/
 .venv/
+
+

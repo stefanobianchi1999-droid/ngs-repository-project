@@ -4,7 +4,7 @@ import os
 # Make the pipeline runnable from anywhere: paths below are relative to the
 # repo root, so pin config + working directory to it regardless of where
 # snakemake is launched. workflow.basedir = this Snakefile's directory.
-REPO_ROOT = os.path.abspath(os.path.join(workflow.basedir, "..", ".."))
+REPO_ROOT = os.path.abspath(os.path.join(workflow.basedir, "..", "..", ".."))
 configfile: os.path.join(workflow.basedir, "config.yml")
 workdir: REPO_ROOT
 
@@ -53,7 +53,7 @@ rule fastqc_raw:
         html_r1 = "results/rna-seq/{run}/before/fastqc/{sample}_1_fastqc.html",
         html_r2 = "results/rna-seq/{run}/before/fastqc/{sample}_2_fastqc.html"
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "fastqc {input.r1} {input.r2} -o results/rna-seq/{wildcards.run}/before/fastqc/"
 
@@ -70,7 +70,7 @@ rule fastp_trim:
         html = "results/rna-seq/{run}/trimmed/{sample}_fastp.html",
         json = "results/rna-seq/{run}/trimmed/{sample}_fastp.json"
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "fastp -i {input.r1} -I {input.r2} "
         "-o {output.r1} -O {output.r2} "
@@ -87,7 +87,7 @@ rule fastqc_trimmed:
         html_r1 = "results/rna-seq/{run}/after/fastqc/{sample}_1_fastqc.html",
         html_r2 = "results/rna-seq/{run}/after/fastqc/{sample}_2_fastqc.html"
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "fastqc {input.r1} {input.r2} -o results/rna-seq/{wildcards.run}/after/fastqc/"
 
@@ -111,7 +111,7 @@ rule star_index:
     output:
         directory(GENOME_DIR)
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     threads: 2
     shell:
         # E. coli è un genoma piccolo (~4.6 Mb): --genomeSAindexNbases va
@@ -139,7 +139,7 @@ rule star_alignment:
         genome_dir = GENOME_DIR
     threads: 2
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "STAR --runMode alignReads "
         "--genomeDir {params.genome_dir} "
@@ -160,7 +160,7 @@ rule samtools_index:
     output:
         bai = "results/rna-seq/{run}/aligned/{sample}_Aligned.sortedByCoord.out.bam.bai"
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "samtools index {input.bam}"
 
@@ -173,7 +173,7 @@ rule samtools_stats:
     output:
         stats = "results/rna-seq/{run}/aligned/{sample}_samtools_stats.txt"
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "samtools stats {input.bam} > {output.stats}"
 
@@ -186,7 +186,7 @@ rule samtools_flagstat:
     output:
         flagstat = "results/rna-seq/{run}/aligned/{sample}_flagstat.txt"
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "samtools flagstat {input.bam} > {output.flagstat}"
 
@@ -200,7 +200,7 @@ rule samtools_depth:
     output:
         depth = "results/rna-seq/{run}/aligned/{sample}_depth.txt"
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "samtools depth -a {input.bam} > {output.depth}"
 
@@ -215,7 +215,7 @@ rule plot_bamstats:
     params:
         prefix = "results/rna-seq/{run}/aligned/{sample}_bamstats_plots/"
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "plot-bamstats -p {params.prefix} {input.stats}"
 
@@ -231,7 +231,7 @@ rule featurecounts:
         counts = "results/rna-seq/{run}/counts/gene_counts.txt"
     threads: 2
     conda:
-        "envs/rna-seq.yml"
+        "../envs/rna-seq.yml"
     shell:
         "featureCounts -a {input.gtf} -o {output.counts} "
         "-T {threads} -p "
@@ -243,7 +243,7 @@ rule featurecounts:
 rule deseq2_analysis:
     input:
         counts = "results/rna-seq/{run}/counts/gene_counts.txt",
-        script = "shared/lib/r/deseq2_analysis.R"
+        script = "pipelines/rna-seq/scripts/r/deseq2_analysis.R"
     output:
         results_csv = "results/rna-seq/{run}/deseq2/deseq2_results.csv",
         volcano_png = "results/rna-seq/{run}/deseq2/volcano_plot.png"
@@ -251,7 +251,7 @@ rule deseq2_analysis:
         # "sample1:cond1,sample2:cond2,..." nell'ordine dei sample del config
         conditions = ",".join(f"{s}:{CONDITIONS[s]}" for s in SAMPLES)
     conda:
-        "envs/deseq2.yml"
+        "../envs/deseq2.yml"
     shell:
         "Rscript {input.script} {input.counts} {params.conditions} "
         "{output.results_csv} {output.volcano_png}"

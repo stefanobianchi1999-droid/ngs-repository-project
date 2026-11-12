@@ -1,0 +1,8 @@
+name: seq-base
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - hisat2
+  - samtools
+  - snakemake-minimal
