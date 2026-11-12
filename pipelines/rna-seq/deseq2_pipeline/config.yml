@@ -1,0 +1,9 @@
+genome_dir: "data/reference/homo_sapiens/hisat2"
+genome_fasta_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+genome_gtf_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.111.gtf.gz"
+
+nSample: 18
+groups: ["Bex3KO", "Bex3KO_EE", "WT_Control"]
+tissue: ["Hc","Cb"]
+rep: 3
+padj_cut: 0.05

@@ -1,0 +1,44 @@
+# Snakefile for the rna-seq pipeline
+import os
+
+# Make the pipeline runnable from anywhere: paths below are relative to the
+# repo root, so pin config + working directory to it regardless of where
+# snakemake is launched. workflow.basedir = this Snakefile's directory.
+REPO_ROOT = os.path.abspath(os.path.join(workflow.basedir, "..", "..", ".."))
+configfile: os.path.join(workflow.basedir, "config.yml")
+workdir: REPO_ROOT
+
+SAMPLES = config["samples"]
+RUN = config["run_id"]
+GENOME_DIR = config["genome_dir"]
+GENOME_FASTA_GZ = config["genome_fasta_gz"]
+GENOME_GTF_GZ = config["genome_gtf_gz"]
+GENOME_FASTA = GENOME_FASTA_GZ[:-len(".gz")]
+GENOME_GTF = GENOME_GTF_GZ[:-len(".gz")]
+
+# ============================================
+# Final target: the HISAT2 index files (genome_index_prefix.1.ht2 ... .8.ht2)
+# ============================================
+rule all:
+    input:
+        expand(os.path.join(GENOME_DIR, "genome_index_prefix.{i}.ht2"), i=range(1, 9)),
+        expand("results/rna-seq/{run}/alignment/{sample}_sorted.bam.bai",
+               run=RUN, sample=SAMPLES)
+
+rule deseq2_three_groups:
+    input:
+        txi = "results/rna-seq/{run}/quant/txi_all.rds",
+        samples = "results/rna-seq/{run}/samples.tsv"
+    output:
+        csv = "results/rna-seq/{run}/deseq2/three_groups_{tissue}/three_groups_results.csv"
+    params:
+        gtf_file = config["genome_gtf_gz"],
+        nSample = config["nSample"],
+        groups = config["groups"],
+        tissues = config["tissues"],          
+        reps = config["reps"],          
+        padj_cut = config.get("padj_cut", 0.05)
+    conda:
+        "../envs/rna-seq.yml"
+    script:
+        "scripts/r/deseq2_analysis_v2.R"

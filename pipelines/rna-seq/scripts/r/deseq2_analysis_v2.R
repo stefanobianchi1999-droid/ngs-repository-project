@@ -1,18 +1,106 @@
-# ============================================
-# Exercise_GF: WT Control vs Bex3KO vs Bex3KO EE, un tessuto alla volta
-# Un solo modello DESeq2 con i 3 gruppi (design ~ group) per tessuto:
-#   - test LRT: geni che cambiano tra almeno due dei tre gruppi
-#   - contrasti a coppie dallo stesso modello (KO vs WT, EE vs WT, EE vs KO)
-#   - classificazione dei geni in "pattern" (es. alterato dal KO e corretto dall'EE)
-#   - grafici: PCA, heatmap e andamento dei pattern, boxplot dei geni chiave
-#     (Venn e barplot dei DEG: three_groups_venn.R e three_groups_barplot.R)
 # Output: results/rna-seq/Exercise_GF/deseq2/three_groups_<tessuto>/
 #
 # Da lanciare con la working directory nella root del progetto:
 #   setwd("C:/Users/hp/Documents/GitHub/ngs-repository-project")
 #   source("pipelines/rna-seq/scripts/r/three_groups_exercise_gf.R")
 # ============================================
-source("pipelines/rna-seq/scripts/r/exercise_gf_setup.R")
+
+# ============================================
+# Exercise_GF: setup comune (campioni, tx2gene, import Salmon con tximport)
+# Usato da salmon_deseq2_exercise_gf.R (confronti a coppie) e
+# three_groups_exercise_gf.R (WT vs Bex3KO vs Bex3KO EE per tessuto).
+# Da lanciare con la working directory nella root del progetto.
+# ============================================
+library(tximport)
+library(DESeq2)
+library(ggplot2)
+
+salmon_dir <- "results/rna-seq/Exercise_GF/salmon"
+
+deseq_dir  <- "results/rna-seq/Exercise_GF/deseq2"
+
+
+group_levels <- snakemake@params[["groups"]]
+padj_cut     <- snakemake@params[["padj_cut"]]
+tissue       <- snakemake@wildcards[["tissue"]]
+
+# =============================================================================
+# Step 1: sample table (from "Sample Information Collection Form")
+# =============================================================================
+
+groups <- snakemake@params[["groups"]]
+tissues <- snakemake@params[["tissues"]]
+reps <- snakemake@params[["reps"]]
+
+n_groups <- length(groups)
+n_tissues <- length(tissues) 
+combo <- n_groups * n_tissues
+
+samples <- data.frame(
+  np     = paste0("NP", 1:(combo * reps)),
+  group  = rep(groups, each = n_tissues * reps),
+  tissue = rep(tissues,  each = reps, times = n_groups),
+  rep    = rep(1:reps, times = combo)
+)
+
+samples$condition <- paste(samples$group, samples$tissue, sep = "_")
+samples$sample <- paste(samples$condition, samples$rep, sep = "_")
+rownames(samples) <- samples$sample
+
+# ============================================
+# Step 2: Trascriptome table -> gene (tx2gene) from GTF
+# ============================================
+# quote = "" tiene le virgolette degli attributi (gene_id "ENSMUSG...";)
+
+gtf_file   <- snakemake@params[["gtf_file"]]
+
+gtf <- read.delim(
+  gzfile(gtf_file),
+  header = FALSE,
+  comment.char = "#",
+  quote = "",
+  colClasses = c("character", "NULL", "character", rep("NULL", 5), "character")
+)
+colnames(gtf) <- c("chrom", "feature", "attributes")
+gtf <- gtf[gtf$feature == "transcript", ]
+
+# This extracts GTF attribute values (es. gene_id "ENSMUSG..."; -> ENSMUSG...)
+get_attr <- function(attrs, key) {
+  sub(paste0(".*", key, ' "([^"]+)".*'), "\\1", attrs)
+}
+tx2gene <- data.frame(
+  tx   = get_attr(gtf$attributes, "transcript_id"),
+  gene = get_attr(gtf$attributes, "gene_id")
+)
+gene_names <- unique(data.frame(
+  gene_id   = tx2gene$gene,
+  chrom     = gtf$chrom,
+  gene_name = ifelse(grepl("gene_name", gtf$attributes),
+                     get_attr(gtf$attributes, "gene_name"), tx2gene$gene)
+))
+symbol_of <- function(ids) gene_names$gene_name[match(ids, gene_names$gene_id)]
+chrom_of  <- function(ids) gene_names$chrom[match(ids, gene_names$gene_id)]
+
+# ============================================
+# Step 3: import of all quant.sf using tximport (it sums transcripts -> genes)
+# ============================================
+files <- file.path(salmon_dir, samples$np, "quant.sf")
+names(files) <- samples$sample
+# quant.sf ha gli ID con versione (ENSMUST...1), il GTF senza -> ignoreTxVersion
+txi_all <- tximport(
+  files,
+  type = "salmon",
+  tx2gene = tx2gene,
+  ignoreTxVersion = TRUE
+)
+
+# Sottoinsieme di txi con solo alcuni campioni
+subset_txi <- function(txi, keep) {
+  txi$abundance <- txi$abundance[, keep, drop = FALSE]
+  txi$counts    <- txi$counts[, keep, drop = FALSE]
+  txi$length    <- txi$length[, keep, drop = FALSE]
+  txi
+}
 
 group_levels <- c("WT_Control", "Bex3KO", "Bex3KO_EE")
 group_colors <- c(WT_Control = "grey40", Bex3KO = "firebrick", Bex3KO_EE = "steelblue")
@@ -63,7 +151,8 @@ run_three_groups <- function(tissue) {
   cd <- samples[samples$tissue == tissue, ]
   cd$group <- factor(cd$group, levels = group_levels)
   txi <- subset_txi(txi_all, cd$sample)
-
+  
+## FROM HERE IT IS GENERIC
   dds <- DESeqDataSetFromTximport(txi, colData = cd, design = ~ group)
   dds <- dds[rowSums(counts(dds) >= 10) >= 3, ]
   # I geni del cromosoma Y riflettono solo il sesso degli animali: li escludo
