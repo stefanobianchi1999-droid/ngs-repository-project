@@ -38,6 +38,8 @@ rule deseq2_three_groups:
         tissues = config["tissues"],          
         reps = config["reps"],          
         padj_cut = config.get("padj_cut", 0.05)
+        sample_dir = "TO BE CHANGED"
+        output_dir = "TO BE CHANGED"
     conda:
         "../envs/rna-seq.yml"
     script:

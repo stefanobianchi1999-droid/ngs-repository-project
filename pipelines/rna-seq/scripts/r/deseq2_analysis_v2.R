@@ -15,15 +15,6 @@ library(tximport)
 library(DESeq2)
 library(ggplot2)
 
-salmon_dir <- "results/rna-seq/Exercise_GF/salmon"
-
-deseq_dir  <- "results/rna-seq/Exercise_GF/deseq2"
-
-
-group_levels <- snakemake@params[["groups"]]
-padj_cut     <- snakemake@params[["padj_cut"]]
-tissue       <- snakemake@wildcards[["tissue"]]
-
 # =============================================================================
 # Step 1: sample table (from "Sample Information Collection Form")
 # =============================================================================
@@ -84,7 +75,11 @@ chrom_of  <- function(ids) gene_names$chrom[match(ids, gene_names$gene_id)]
 # ============================================
 # Step 3: import of all quant.sf using tximport (it sums transcripts -> genes)
 # ============================================
-files <- file.path(salmon_dir, samples$np, "quant.sf")
+
+sample_dir <- snakemake@params[["sample_dir"]]
+padj_cut     <- snakemake@params[["padj_cut"]]
+
+files <- file.path(sample_dir, samples$np, "quant.sf")
 names(files) <- samples$sample
 # quant.sf ha gli ID con versione (ENSMUST...1), il GTF senza -> ignoreTxVersion
 txi_all <- tximport(
@@ -102,9 +97,7 @@ subset_txi <- function(txi, keep) {
   txi
 }
 
-group_levels <- c("WT_Control", "Bex3KO", "Bex3KO_EE")
 group_colors <- c(WT_Control = "grey40", Bex3KO = "firebrick", Bex3KO_EE = "steelblue")
-padj_cut <- 0.05
 
 # ============================================
 # Classificazione dei pattern a partire dai tre contrasti a coppie
@@ -112,26 +105,31 @@ padj_cut <- 0.05
 # ============================================
 classify_pattern <- function(ko, ee_wt, ee_ko) {
   sig <- function(x) !is.na(x$padj) & x$padj < padj_cut
-  s_ko <- sig(ko); s_eewt <- sig(ee_wt); s_eeko <- sig(ee_ko)
-  d_ko <- sign(ko$log2FoldChange); d_eewt <- sign(ee_wt$log2FoldChange); d_eeko <- sign(ee_ko$log2FoldChange)
+  s_ko <- sig(ko)
+  s_eewt <- sig(ee_wt)
+  s_eeko <- sig(ee_ko)
+
+  d_ko <- sign(ko$log2FoldChange)
+  d_eewt <- sign(ee_wt$log2FoldChange)
+  d_eeko <- sign(ee_ko$log2FoldChange)
 
   p <- rep("Other", length(s_ko))
   # alterato nel KO, l'EE lo riporta verso il WT
-  p[s_ko & s_eeko & d_eeko == -d_ko & !s_eewt]                    <- "KO altered, rescued by EE"
-  p[s_ko & s_eeko & d_eeko == -d_ko & s_eewt & d_eewt == d_ko]     <- "KO altered, partially rescued"
+  p[s_ko & s_eeko & d_eeko == -d_ko & !s_eewt] <- "KO altered, rescued by EE"
+  p[s_ko & s_eeko & d_eeko == -d_ko & s_eewt & d_eewt == d_ko] <- "KO altered, partially rescued"
   # alterato nel KO, l'EE non lo corregge
-  p[s_ko & !s_eeko & s_eewt & d_eewt == d_ko]                     <- "KO altered, not rescued"
+  p[s_ko & !s_eeko & s_eewt & d_eewt == d_ko] <- "KO altered, not rescued"
   # alterato nel KO, l'EE sta a meta' (nessun contrasto con l'EE significativo)
-  p[s_ko & !s_eeko & !s_eewt]                                     <- "KO altered, EE intermediate"
+  p[s_ko & !s_eeko & !s_eewt] <- "KO altered, EE intermediate"
   # non alterato nel KO, cambiato solo dall'EE
-  p[!s_ko & s_eeko & s_eewt & d_eeko == d_eewt]                   <- "EE-specific"
+  p[!s_ko & s_eeko & s_eewt & d_eeko == d_eewt] <- "EE-specific"
   # KO ed EE si discostano dal WT in direzioni opposte, nessuno dei due in modo significativo:
   # differiscono solo tra loro, il WT sta in mezzo
-  p[!s_ko & s_eeko & !s_eewt]                                     <- "KO vs EE only (WT in between)"
+  p[!s_ko & s_eeko & !s_eewt] <- "KO vs EE only (WT in between)"
   # solo l'EE differisce dal WT, il KO sta in mezzo
-  p[!s_ko & !s_eeko & s_eewt]                                     <- "EE vs WT only (KO in between)"
+  p[!s_ko & !s_eeko & s_eewt] <- "EE vs WT only (KO in between)"
   # LRT significativo ma nessun confronto a coppie lo e'
-  p[!s_ko & !s_eeko & !s_eewt]                                    <- "LRT only"
+  p[!s_ko & !s_eeko & !s_eewt] <- "LRT only"
   p
 }
 
@@ -143,13 +141,15 @@ pattern_levels <- c("KO altered, rescued by EE", "KO altered, partially rescued"
 # ============================================
 # Analisi di un tessuto
 # ============================================
+output_dir  <- snakemake@params[["output_dir"]]
+
 run_three_groups <- function(tissue) {
-  out_dir <- file.path(deseq_dir, paste0("three_groups_", tissue))
+  out_dir <- file.path(output_dir, paste0("three_groups_", tissue))
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
   cat("\n========== Three groups:", tissue, "==========\n")
 
   cd <- samples[samples$tissue == tissue, ]
-  cd$group <- factor(cd$group, levels = group_levels)
+  cd$group <- factor(cd$group, levels = groups)
   txi <- subset_txi(txi_all, cd$sample)
   
 ## FROM HERE IT IS GENERIC
@@ -225,7 +225,7 @@ run_three_groups <- function(tissue) {
   p_pca <- ggplot(pca, aes(PC1, PC2, color = group, label = label)) +
     geom_point(size = 4) +
     geom_text(size = 3, vjust = -1.2, show.legend = FALSE) +
-    scale_color_manual(values = group_colors, labels = gsub("_", " ", group_levels)) +
+    scale_color_manual(values = group_colors, labels = gsub("_", " ", groups)) +
     xlab(paste0("PC1: ", pct[1], "% variance")) +
     ylab(paste0("PC2: ", pct[2], "% variance")) +
     labs(title = paste0("PCA: WT Control vs Bex3KO vs Bex3KO EE (", tissue, ")"), color = "Group") +
@@ -266,10 +266,10 @@ run_three_groups <- function(tissue) {
     ggsave(file.path(out_dir, "heatmap_patterns.png"), p_hm, width = 8, height = 9, bg = "white")
 
     # ---------- Andamento medio di ogni pattern (z-score medio per gruppo) ----------
-    zm <- sapply(group_levels, function(g) rowMeans(z[, cd$sample[cd$group == g], drop = FALSE]))
+    zm <- sapply(groups, function(g) rowMeans(z[, cd$sample[cd$group == g], drop = FALSE]))
     traj <- data.frame(
       gene    = rep(rownames(zm), times = 3),
-      group   = factor(rep(group_levels, each = nrow(zm)), levels = group_levels),
+      group   = factor(rep(groups, each = nrow(zm)), levels = groups),
       z       = as.vector(zm),
       pattern = factor(rep(hm_genes$pattern[match(rownames(zm), hm_genes$gene_id)], times = 3),
                        levels = pattern_levels)
@@ -310,7 +310,7 @@ run_three_groups <- function(tissue) {
       sample  = rep(colnames(nc), each = nrow(nc)),
       count   = as.vector(nc)
     )
-    bx$group <- factor(cd$group[match(bx$sample, cd$sample)], levels = group_levels)
+    bx$group <- factor(cd$group[match(bx$sample, cd$sample)], levels = groups)
     bx$panel <- factor(paste0(bx$gene, "\n", bx$pattern), levels = unique(paste0(top$gene_name, "\n", top$pattern)))
     p_bx <- ggplot(bx, aes(group, count, color = group)) +
       geom_boxplot(outlier.shape = NA, color = "grey60") +

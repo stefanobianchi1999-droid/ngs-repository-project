@@ -3,7 +3,8 @@ genome_fasta_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_as
 genome_gtf_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.111.gtf.gz"
 
 nSample: 18
-groups: ["Bex3KO", "Bex3KO_EE", "WT_Control"]
+# the order is the same used by the charts
+groups: ["WT_Control", "Bex3KO", "Bex3KO_EE"]
 tissue: ["Hc","Cb"]
 rep: 3
 padj_cut: 0.05
