@@ -1,101 +1,26 @@
-# Output: results/rna-seq/Exercise_GF/deseq2/three_groups_<tessuto>/
-#
-# Da lanciare con la working directory nella root del progetto:
-#   setwd("C:/Users/hp/Documents/GitHub/ngs-repository-project")
-#   source("pipelines/rna-seq/scripts/r/three_groups_exercise_gf.R")
-# ============================================
+source("pipelines/rna-seq/scripts/r/prep_salmon.R")
 
-# ============================================
-# Exercise_GF: setup comune (campioni, tx2gene, import Salmon con tximport)
-# Usato da salmon_deseq2_exercise_gf.R (confronti a coppie) e
-# three_groups_exercise_gf.R (WT vs Bex3KO vs Bex3KO EE per tessuto).
-# Da lanciare con la working directory nella root del progetto.
-# ============================================
-library(tximport)
-library(DESeq2)
-library(ggplot2)
-
-# =============================================================================
-# Step 1: sample table (from "Sample Information Collection Form")
-# =============================================================================
-
-groups <- snakemake@params[["groups"]]
 tissues <- snakemake@params[["tissues"]]
-reps <- snakemake@params[["reps"]]
 
-n_groups <- length(groups)
-n_tissues <- length(tissues) 
-combo <- n_groups * n_tissues
-
-samples <- data.frame(
-  np     = paste0("NP", 1:(combo * reps)),
-  group  = rep(groups, each = n_tissues * reps),
-  tissue = rep(tissues,  each = reps, times = n_groups),
-  rep    = rep(1:reps, times = combo)
+prep <- prep_salmon(
+  groups     = snakemake@params[["groups"]],
+  tissues    = tissues,
+  reps       = snakemake@params[["reps"]],
+  gtf_file   = snakemake@params[["gtf_file"]],
+  sample_dir = snakemake@params[["sample_dir"]]
 )
 
-samples$condition <- paste(samples$group, samples$tissue, sep = "_")
-samples$sample <- paste(samples$condition, samples$rep, sep = "_")
-rownames(samples) <- samples$sample
+# Unpacks prep into plain variables so the generic code below can keep
+# using their names.
+txi_all <- prep$txi_all
+samples <- prep$samples
+subset_txi <- prep$subset_txi
+symbol_of <- prep$symbol_of
+chrom_of <- prep$chrom_of
+groups <- prep$groups
 
-# ============================================
-# Step 2: Trascriptome table -> gene (tx2gene) from GTF
-# ============================================
-# quote = "" tiene le virgolette degli attributi (gene_id "ENSMUSG...";)
+rm(prep)
 
-gtf_file   <- snakemake@params[["gtf_file"]]
-
-gtf <- read.delim(
-  gzfile(gtf_file),
-  header = FALSE,
-  comment.char = "#",
-  quote = "",
-  colClasses = c("character", "NULL", "character", rep("NULL", 5), "character")
-)
-colnames(gtf) <- c("chrom", "feature", "attributes")
-gtf <- gtf[gtf$feature == "transcript", ]
-
-# This extracts GTF attribute values (es. gene_id "ENSMUSG..."; -> ENSMUSG...)
-get_attr <- function(attrs, key) {
-  sub(paste0(".*", key, ' "([^"]+)".*'), "\\1", attrs)
-}
-tx2gene <- data.frame(
-  tx   = get_attr(gtf$attributes, "transcript_id"),
-  gene = get_attr(gtf$attributes, "gene_id")
-)
-gene_names <- unique(data.frame(
-  gene_id   = tx2gene$gene,
-  chrom     = gtf$chrom,
-  gene_name = ifelse(grepl("gene_name", gtf$attributes),
-                     get_attr(gtf$attributes, "gene_name"), tx2gene$gene)
-))
-symbol_of <- function(ids) gene_names$gene_name[match(ids, gene_names$gene_id)]
-chrom_of  <- function(ids) gene_names$chrom[match(ids, gene_names$gene_id)]
-
-# ============================================
-# Step 3: import of all quant.sf using tximport (it sums transcripts -> genes)
-# ============================================
-
-sample_dir <- snakemake@params[["sample_dir"]]
-padj_cut     <- snakemake@params[["padj_cut"]]
-
-files <- file.path(sample_dir, samples$np, "quant.sf")
-names(files) <- samples$sample
-# quant.sf ha gli ID con versione (ENSMUST...1), il GTF senza -> ignoreTxVersion
-txi_all <- tximport(
-  files,
-  type = "salmon",
-  tx2gene = tx2gene,
-  ignoreTxVersion = TRUE
-)
-
-# Sottoinsieme di txi con solo alcuni campioni
-subset_txi <- function(txi, keep) {
-  txi$abundance <- txi$abundance[, keep, drop = FALSE]
-  txi$counts    <- txi$counts[, keep, drop = FALSE]
-  txi$length    <- txi$length[, keep, drop = FALSE]
-  txi
-}
 
 group_colors <- c(WT_Control = "grey40", Bex3KO = "firebrick", Bex3KO_EE = "steelblue")
 
@@ -103,6 +28,8 @@ group_colors <- c(WT_Control = "grey40", Bex3KO = "firebrick", Bex3KO_EE = "stee
 # Classificazione dei pattern a partire dai tre contrasti a coppie
 #   ko = Bex3KO vs WT, ee_wt = Bex3KO EE vs WT, ee_ko = Bex3KO EE vs Bex3KO
 # ============================================
+
+padj_cut     <- snakemake@params[["padj_cut"]]
 classify_pattern <- function(ko, ee_wt, ee_ko) {
   sig <- function(x) !is.na(x$padj) & x$padj < padj_cut
   s_ko <- sig(ko)
@@ -327,4 +254,4 @@ run_three_groups <- function(tissue) {
 }
 
 # Prima il cervelletto, poi l'ippocampo
-for (tissue in c("Cb", "Hc")) run_three_groups(tissue)
+for (tissue in tissues) run_three_groups(tissue)
