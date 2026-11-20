@@ -101,3 +101,20 @@ prep_salmon <- function(groups, tissues, reps, gtf_file, sample_dir) {
     groups     = groups
   ))
 }
+
+# ============================================
+# DESeq2 object for one tissue, built from the prep_salmon() output
+# ============================================
+dds_salmon_creation <- function(prep, tissue) {
+  cd <- prep$samples[prep$samples$tissue == tissue, ]
+  cd$group <- factor(cd$group, levels = prep$groups)
+  txi <- prep$subset_txi(prep$txi_all, cd$sample)
+
+  dds <- DESeqDataSetFromTximport(txi, colData = cd, design = ~ group)
+  dds <- dds[rowSums(counts(dds) >= 10) >= 3, ]
+  # I geni del cromosoma Y riflettono solo il sesso degli animali: li escludo
+  dds <- dds[!prep$chrom_of(rownames(dds)) %in% "Y", ]
+
+  # Test LRT: il gene cambia tra almeno due gruppi?
+  DESeq(dds, test = "LRT", reduced = ~ 1)
+}
