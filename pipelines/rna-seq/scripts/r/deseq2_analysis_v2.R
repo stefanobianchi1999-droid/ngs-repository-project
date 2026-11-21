@@ -1,4 +1,5 @@
 source("pipelines/rna-seq/scripts/r/prep_salmon.R")
+source("pipelines/rna-seq/scripts/r/deseq2_charts.R")
 
 # tissues <- snakemake@params[["tissues"]]
 #
@@ -33,11 +34,10 @@ chrom_of <- prep$chrom_of
 # Ordine di analisi (controllo per primo), NON l'ordine delle cartelle NP:
 # lo usano combn per la direzione dei contrasti e i grafici
 groups <- prep$group_levels
+group_colors <- setNames(hcl.colors(length(groups), "Dark 3"), groups)
 
-rm(prep)
+#rm(prep)
 
-
-group_colors <- c(WT_Control = "grey40", Bex3KO = "firebrick", Bex3KO_EE = "steelblue")
 
 # ============================================
 # Classificazione dei pattern a partire dai tre contrasti a coppie
@@ -110,12 +110,6 @@ run_three_groups <- function(prep, tissue) {
     results(dds_w, contrast = c("group", cmp[1], cmp[2]), alpha = padj_cut)
   })
 
-
-  #tanti saluti li abbiamo convertiti
-  ko    <- results(dds_w, contrast = c("group", "Bex3KO", "WT_Control"),    alpha = padj_cut)
-  ee_wt <- results(dds_w, contrast = c("group", "Bex3KO_EE", "WT_Control"), alpha = padj_cut)
-  ee_ko <- results(dds_w, contrast = c("group", "Bex3KO_EE", "Bex3KO"),     alpha = padj_cut)
-
   block <- Map(function(result, nm) {
     df <- data.frame(
       log2FC = result$log2FoldChange,
@@ -129,90 +123,67 @@ run_three_groups <- function(prep, tissue) {
   }, res, names(res))
   block_df <- do.call(cbind, unname(block))
 
-  tab_fake <- data.frame(
+  tab <- data.frame(
     gene_id   = rownames(lrt),
     gene_name = symbol_of(rownames(lrt)),
     chrom     = chrom_of(rownames(lrt)),
     baseMean  = lrt$baseMean,
     LRT_padj  = lrt$padj
   )
-  tab_fake <- cbind(tab_fake, block_df)
+  tab <- cbind(tab, block_df)
 
 
-
-  # ---------- Tabella completa ----------
-  tab <- data.frame(
-    gene_id   = rownames(lrt),
-    gene_name = symbol_of(rownames(lrt)),
-    chrom     = chrom_of(rownames(lrt)),
-    baseMean  = lrt$baseMean,
-    LRT_padj  = lrt$padj,
-    
+  #tanti saluti li abbiamo convertiti
+  ko    <- results(dds_w, contrast = c("group", "Bex3KO", "WT_Control"),    alpha = padj_cut)
+  ee_wt <- results(dds_w, contrast = c("group", "Bex3KO_EE", "WT_Control"), alpha = padj_cut)
+  ee_ko <- results(dds_w, contrast = c("group", "Bex3KO_EE", "Bex3KO"),     alpha = padj_cut)
   
-    log2FC_Bex3KO_vs_WT = ko$log2FoldChange,
-    lfcSE_Bex3KO_vs_WT = ko$lfcSE,
-    stat_Bex3KO_vs_WT = ko$stat,
-    pvalue_Bex3KO_vs_WT = ko$pvalue,
-    padj_Bex3KO_vs_WT = ko$padj,
-    
-    log2FC_Bex3KO_EE_vs_WT     = ee_wt$log2FoldChange, lfcSE_Bex3KO_EE_vs_WT     = ee_wt$lfcSE,
-    stat_Bex3KO_EE_vs_WT       = ee_wt$stat,           pvalue_Bex3KO_EE_vs_WT    = ee_wt$pvalue,
-    padj_Bex3KO_EE_vs_WT       = ee_wt$padj,
-    
-    log2FC_Bex3KO_EE_vs_Bex3KO = ee_ko$log2FoldChange, lfcSE_Bex3KO_EE_vs_Bex3KO = ee_ko$lfcSE,
-    stat_Bex3KO_EE_vs_Bex3KO   = ee_ko$stat,           pvalue_Bex3KO_EE_vs_Bex3KO = ee_ko$pvalue,
-    padj_Bex3KO_EE_vs_Bex3KO   = ee_ko$padj
-  )
+  tab$pattern <- ifelse(!is.na(tab$LRT_padj) & tab$LRT_padj < padj_cut,
+                        classify_pattern(ko, ee_wt, ee_ko), "Not significant (LRT)")
   
-  #tab$pattern <- ifelse(!is.na(tab$LRT_padj) & tab$LRT_padj < padj_cut,
-  #                      classify_pattern(ko, ee_wt, ee_ko), "Not significant (LRT)")
   tab <- tab[order(tab$LRT_padj), ]
-  tab_fake <- tab_fake[order(tab_fake$LRT_padj), ]
 
-  write.csv(tab_fake, file.path(out_dir, "three_groups_results.csv"), row.names = FALSE)
+  file_path_three_groups <- file.path(out_dir, "three_groups_results.csv")
+  write.csv(tab, file_path_three_groups, row.names = FALSE)
 
+  file_path_normalized <- file.path(out_dir, "normalized_counts.csv")
+  norm_counts <- as.data.frame(counts(dds, normalized = TRUE))
+  norm_counts$gene_name <- symbol_of(rownames(norm_counts))
+  write.csv(norm_counts, file_path_normalized)
 
-  # norm_counts <- as.data.frame(counts(dds, normalized = TRUE))
-  # norm_counts$gene_name <- symbol_of(rownames(norm_counts))
-  # write.csv(norm_counts, file.path(out_dir, "normalized_counts.csv"))
+  lrt_sig <- tab[!is.na(tab$LRT_padj) & tab$LRT_padj < padj_cut, ]
+  pattern_counts <- table(factor(lrt_sig$pattern, levels = pattern_levels))
 
-  # lrt_sig <- tab[!is.na(tab$LRT_padj) & tab$LRT_padj < padj_cut, ]
-  # pattern_counts <- table(factor(lrt_sig$pattern, levels = pattern_levels))
-  # cat("Genes changing among the 3 groups (LRT padj <", padj_cut, "):", nrow(lrt_sig), "\n")
-  # print(pattern_counts)
-  # capture.output(
-  #   cat("Genes changing among the 3 groups (LRT padj <", padj_cut, "):", nrow(lrt_sig), "\n\n"),
-  #   print(pattern_counts),
-  #   cat("\nPairwise contrasts (padj <", padj_cut, "):\n"),
-  #   cat("  Bex3KO vs WT:        ", sum(ko$padj < padj_cut, na.rm = TRUE), "\n"),
-  #   cat("  Bex3KO EE vs WT:     ", sum(ee_wt$padj < padj_cut, na.rm = TRUE), "\n"),
-  #   cat("  Bex3KO EE vs Bex3KO: ", sum(ee_ko$padj < padj_cut, na.rm = TRUE), "\n"),
-  #   file = file.path(out_dir, "summary.txt")
-  # )
-  # # Una lista di geni per pattern (ID Ensembl e simboli)
-  # for (p in setdiff(pattern_levels, "Other")) {
-  #   sub <- lrt_sig[lrt_sig$pattern == p, ]
-  #   fname <- gsub("[ ,]+", "_", tolower(p))
-  #   writeLines(sub$gene_id, file.path(out_dir, paste0("genes_", fname, ".txt")))
-  #   writeLines(unique(sub$gene_name), file.path(out_dir, paste0("genes_", fname, "_symbols.txt")))
-  # }
-  # writeLines(tab$gene_id[!is.na(tab$LRT_padj)], file.path(out_dir, "genes_background.txt"))
+  output_texts <- Map(function(result, nm) {
+    paste(nm, sum(result$padj < padj_cut, na.rm = TRUE))
+  }, res, names(res))
+  
+  file_path_summary <- file.path(out_dir, "summary.txt")
 
-  # vsd <- vst(dds, blind = TRUE)
+  capture.output(
+    cat("Genes changing among the", length(groups), "groups (LRT padj <", padj_cut, "):", nrow(lrt_sig), "\n\n"),
+    print(pattern_counts),
+    cat("\nPairwise contrasts (padj <", padj_cut, "):\n"),
+    cat(unlist(output_texts), sep = "\n"),
+    file = file_path_summary
+  )
 
-  # # ---------- PCA ----------
-  # pca <- plotPCA(vsd, intgroup = "group", returnData = TRUE)
-  # pct <- round(100 * attr(pca, "percentVar"))
-  # pca$label <- gsub("_", " ", pca$name)
-  # p_pca <- ggplot(pca, aes(PC1, PC2, color = group, label = label)) +
-  #   geom_point(size = 4) +
-  #   geom_text(size = 3, vjust = -1.2, show.legend = FALSE) +
-  #   scale_color_manual(values = group_colors, labels = gsub("_", " ", groups)) +
-  #   xlab(paste0("PC1: ", pct[1], "% variance")) +
-  #   ylab(paste0("PC2: ", pct[2], "% variance")) +
-  #   labs(title = paste0("PCA: WT Control vs Bex3KO vs Bex3KO EE (", tissue, ")"), color = "Group") +
-  #   theme_bw()
-  # ggsave(file.path(out_dir, "pca.png"), p_pca, width = 7.5, height = 5)
+  file_path_gene_background <- file.path(out_dir, "genes_background.txt")
+  # Una lista di geni per pattern (ID Ensembl e simboli)
+  for (p in setdiff(pattern_levels, "Other")) {
+    sub <- lrt_sig[lrt_sig$pattern == p, ]
+    fname <- gsub("[ ,]+", "_", tolower(p))
+    writeLines(sub$gene_id,file.path(out_dir, paste0("genes_", fname, ".txt")))
+    writeLines(unique(sub$gene_name), file.path(out_dir, paste0("genes_", fname, "_symbols.txt")))
+  }
+  writeLines(tab$gene_id[!is.na(tab$LRT_padj)], file_path_gene_background)
+
+  vsd <- vst(dds, blind = TRUE)
+
+  # ---------- PCA ----------
+  output_file <- file.path(out_dir, "pca.png")
+  PCA_chart_drawer(vsd = vsd, groups = groups, tissue = tissue,
+                   group_colors = group_colors, output_file = output_file)
 
   # # Il diagramma di Venn e il barplot dei DEG si creano con three_groups_venn.R e
   # # three_groups_barplot.R, che leggono three_groups_results.csv
