@@ -4,6 +4,7 @@ source("pipelines/rna-seq/scripts/r/prep_salmon.R")
 #
 # prep <- prep_salmon(
 #   groups     = snakemake@params[["groups"]],
+#   reference  = snakemake@params[["reference"]],
 #   tissues    = tissues,
 #   reps       = snakemake@params[["reps"]],
 #   gtf_file   = snakemake@params[["gtf_file"]],
@@ -14,7 +15,8 @@ source("pipelines/rna-seq/scripts/r/prep_salmon.R")
 tissues <- c("Hc", "Cb")
 
 prep <- prep_salmon(
-  groups     = c("WT_Control", "Bex3KO", "Bex3KO_EE"),
+  groups     = c("Bex3KO", "Bex3KO_EE", "WT_Control"),   # ordine delle cartelle NP
+  reference  = "WT_Control",
   tissues    = tissues,
   reps       = 3,
   gtf_file   = "data/reference/mus_musculus/Mus_musculus.GRCm38.102.gtf.gz",
@@ -28,7 +30,9 @@ samples <- prep$samples
 subset_txi <- prep$subset_txi
 symbol_of <- prep$symbol_of
 chrom_of <- prep$chrom_of
-groups <- prep$groups
+# Ordine di analisi (controllo per primo), NON l'ordine delle cartelle NP:
+# lo usano combn per la direzione dei contrasti e i grafici
+groups <- prep$group_levels
 
 rm(prep)
 
@@ -97,7 +101,8 @@ run_three_groups <- function(prep, tissue) {
   # Contrasti a coppie dallo stesso modello (test di Wald, stesse dispersioni)
   dds_w <- nbinomWaldTest(dds)
 
-  # Tutte le coppie di gruppi: c(numeratore, denominatore), il riferimento e' il gruppo che viene prima
+  # Tutte le coppie di gruppi: c(numeratore, denominatore), il denominatore e' il gruppo che viene prima
+  # in groups (= group_levels: reference, poi gli altri nell'ordine delle cartelle NP)
   comparisons <- combn(groups, 2, FUN = function(p) c(p[2], p[1]), simplify = FALSE)
   names(comparisons) <- vapply(comparisons, paste, character(1), collapse = "_vs_")
 
@@ -131,7 +136,7 @@ run_three_groups <- function(prep, tissue) {
     baseMean  = lrt$baseMean,
     LRT_padj  = lrt$padj
   )
-  tab <- cbind(tab, block_df)
+  tab_fake <- cbind(tab_fake, block_df)
 
 
 

@@ -35,6 +35,7 @@ rule deseq2_three_groups:
         gtf_file = config["genome_gtf_gz"],
         nSample = config["nSample"],
         groups = config["groups"],
+        reference = config["reference"],
         tissues = config["tissues"],          
         reps = config["reps"],          
         padj_cut = config.get("padj_cut", 0.05)

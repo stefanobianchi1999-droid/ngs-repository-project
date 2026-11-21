@@ -16,7 +16,15 @@ library(tximport)
 library(DESeq2)
 library(ggplot2)
 
-prep_salmon <- function(groups, tissues, reps, gtf_file, sample_dir) {
+# groups:    ordine delle cartelle NP (serve ad assegnare i campioni ai gruppi)
+# reference: gruppo di controllo, sempre al denominatore nei contrasti
+prep_salmon <- function(groups, reference, tissues, reps, gtf_file, sample_dir) {
+  if (!reference %in% groups) {
+    stop("reference '", reference, "' non e' tra i groups: ", paste(groups, collapse = ", "))
+  }
+  # Livelli del fattore: il controllo per primo, gli altri nell'ordine di groups
+  group_levels <- c(reference, setdiff(groups, reference))
+
   # ================================================================
   # Step 1: sample table (from "Sample Information Collection Form")
   # ================================================================
@@ -98,7 +106,8 @@ prep_salmon <- function(groups, tissues, reps, gtf_file, sample_dir) {
     subset_txi = subset_txi,
     symbol_of  = symbol_of,
     chrom_of   = chrom_of,
-    groups     = groups
+    groups       = groups,
+    group_levels = group_levels
   ))
 }
 
@@ -107,7 +116,7 @@ prep_salmon <- function(groups, tissues, reps, gtf_file, sample_dir) {
 # ============================================
 dds_salmon_creation <- function(prep, tissue) {
   cd <- prep$samples[prep$samples$tissue == tissue, ]
-  cd$group <- factor(cd$group, levels = prep$groups)
+  cd$group <- factor(cd$group, levels = prep$group_levels)
   txi <- prep$subset_txi(prep$txi_all, cd$sample)
 
   dds <- DESeqDataSetFromTximport(txi, colData = cd, design = ~ group)

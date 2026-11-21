@@ -3,8 +3,11 @@ genome_fasta_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.dna.primary_as
 genome_gtf_gz: "data/reference/homo_sapiens/Homo_sapiens.GRCh38.111.gtf.gz"
 
 nSample: 18
-# the order is the same used by the charts
-groups: ["WT_Control", "Bex3KO", "Bex3KO_EE"]
+# Same order as the NP sample folders (NP1-6, NP7-12, NP13-18): used to label the samples.
+# Among non-reference groups, the one listed first is the denominator (Bex3KO_EE vs Bex3KO).
+groups: ["Bex3KO", "Bex3KO_EE", "WT_Control"]
+# Control group: always the denominator (Bex3KO vs WT_Control, Bex3KO_EE vs WT_Control)
+reference: "WT_Control"
 tissue: ["Hc","Cb"]
 rep: 3
 padj_cut: 0.05
